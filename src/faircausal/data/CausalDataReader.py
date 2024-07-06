@@ -1,6 +1,7 @@
 import pandas as pd
 
 from _BuildCausalModel import build_causal_model, generate_beta_params
+from faircausal.utils.Dag import is_valid_causal_dag
 
 
 class CausalDataReader:
@@ -20,7 +21,7 @@ class CausalDataReader:
         if not isinstance(causal_dag, dict):
             raise TypeError("causal_dag must be a dictionary.")
 
-        if not self.__is_valid_causal_dag(causal_dag):
+        if not is_valid_causal_dag(causal_dag):
             raise ValueError("The input graph must be a Directed Acyclic Graph (DAG).")
         self.causal_dag = causal_dag
 
@@ -42,37 +43,6 @@ class CausalDataReader:
 
         self.sm, self.causal_dag = build_causal_model(data)
         self.beta_dict = generate_beta_params(self.causal_dag, data)
-
-    @staticmethod
-    def __is_valid_causal_dag(dag: dict):
-        for node, children in dag.items():
-            for child in children:
-                if child not in dag:
-                    raise ValueError(f"Node {child} is not present in the graph.")
-
-        def has_cycle(dag: dict):
-            visited = set()
-            stack = set()
-
-            def visit(node):
-                if node in stack:
-                    return True
-                if node in visited:
-                    return False
-                visited.add(node)
-                stack.add(node)
-                for child in dag.get(node, []):
-                    if visit(child):
-                        return True
-                stack.remove(node)
-                return False
-
-            return any(visit(node) for node in dag)
-
-        if has_cycle(dag):
-            return False
-
-        return True
 
     @staticmethod
     def __count_linear_regression_parameters(dag: dict):
