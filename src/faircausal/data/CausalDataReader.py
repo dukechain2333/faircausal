@@ -68,6 +68,3 @@ class CausalDataReader:
             'beta_dict': self.beta_dict,
             'causal_dag': self.causal_dag
         }
-
-    def show_model_graph(self):
-        pass
