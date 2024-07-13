@@ -5,6 +5,11 @@ from faircausal.utils.Dag import is_valid_causal_dag
 
 
 class CausalDataReader:
+    def __new__(cls, *args, **kwargs):
+        instance = super(CausalDataReader, cls).__new__(cls)
+        instance.__init__(*args, **kwargs)
+        return instance.get_model()
+
     def __init__(self, *args, **kwargs):
         if len(args) == 3:
             self.__load_manually(*args, **kwargs)
