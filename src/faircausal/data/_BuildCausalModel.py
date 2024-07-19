@@ -3,10 +3,16 @@ import statsmodels.api as sm
 from causalnex.structure.notears import from_pandas
 
 
-def build_causal_model(dataframe, max_iter: int = 100, w_threshold: float = 0.0):
-    s_model = from_pandas(dataframe, max_iter=max_iter, w_threshold=w_threshold)
+def build_causal_model(dataframe, data_type: dict, max_iter: int = 100, w_threshold: float = 0.0):
+    # One-hot encode discrete variables
+    discrete_vars = [var for var, var_type in data_type.items() if var_type == 'discrete']
+    data_encoded = pd.get_dummies(dataframe, columns=discrete_vars, drop_first=False)
+
+    # Build causal model
+    s_model = from_pandas(data_encoded, max_iter=max_iter, w_threshold=w_threshold)
     dag_dict = {node: list(s_model.successors(node)) for node in s_model.nodes}
-    return s_model, dag_dict
+
+    return s_model, dag_dict, data_encoded
 
 
 def generate_beta_params(dag: dict, data: pd.DataFrame):
@@ -23,8 +29,9 @@ def generate_beta_params(dag: dict, data: pd.DataFrame):
 
         X = sm.add_constant(data[parents])
         model = sm.OLS(data[node], X).fit()
-        beta_params[f'beta_{node}_0'] = model.params['const']
+        beta_params[f'beta__{node}__0'] = model.params['const']
         for parent in parents:
-            beta_params[f'beta_{node}_{parent}'] = model.params[parent]
+            beta_params[f'beta__{node}__{parent}'] = model.params[parent]
 
     return beta_params
+
