@@ -61,7 +61,16 @@ class CausalDataReader:
             raise TypeError("data must be a pandas DataFrame.")
 
         self.data = data
-        self.data_type = classify_variables(self.data)
+
+        if 'data_type' in kwargs:
+            if not self.__check_if_valid_data_type(kwargs['data_type']):
+                raise ValueError("Invalid data type, expected 'discrete' or 'continuous'.")
+            are_nodes_in_df, missing_node = self.__check_dag_nodes_in_dataframe(kwargs['data_type'], self.data)
+            if not are_nodes_in_df:
+                raise ValueError(f"Node {missing_node} is not present in the data.")
+            self.data_type = kwargs['data_type']
+        else:
+            self.data_type = classify_variables(self.data)
 
         self.sm, self.causal_dag, self.data = build_causal_model(self.data, self.data_type)
         self.beta_dict = generate_beta_params(self.causal_dag, self.data)
@@ -89,6 +98,12 @@ class CausalDataReader:
         for node, dtype in data_type.items():
             if dtype not in ['discrete', 'continuous']:
                 return False
+
+    def get_discrete(self):
+        return {node: dtype for node, dtype in self.data_type.items() if dtype == 'discrete'}
+
+    def get_continuous(self):
+        return {node: dtype for node, dtype in self.data_type.items() if dtype == 'continuous'}
 
     def get_model(self):
         return {
