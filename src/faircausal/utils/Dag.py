@@ -11,6 +11,12 @@ def is_valid_causal_dag(dag: dict):
                 raise ValueError(f"Node {child} is not present in the graph.")
 
     def has_cycle(dag: dict):
+        """
+        Check if the given graph has a cycle.
+
+        :param dag: Directed Acyclic Graph (DAG) represented as a dictionary
+        :return: True if the graph has a cycle, False otherwise
+        """
         visited = set()
         stack = set()
 
