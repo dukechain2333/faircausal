@@ -1,15 +1,11 @@
 import pandas as pd
 
-from _BuildCausalModel import build_causal_model, generate_beta_params
+from faircausal.data._BuildCausalModel import build_causal_model, generate_beta_params
 from faircausal.utils.Dag import is_valid_causal_dag
-from faircausal.utils.Data import classify_variables
+from faircausal.utils.Data import classify_variables, check_if_dummy
 
 
 class CausalDataReader:
-    def __new__(cls, *args, **kwargs):
-        instance = super(CausalDataReader, cls).__new__(cls)
-        instance.__init__(*args, **kwargs)
-        return instance.get_model()
 
     def __init__(self, *args, **kwargs):
         if len(args) == 3:
@@ -18,6 +14,9 @@ class CausalDataReader:
             self.__load_auto(*args, **kwargs)
         else:
             raise ValueError("Invalid number of arguments. Expected either 1 or 3 arguments.")
+
+    def __getitem__(self, item):
+        return self.get_model()[item]
 
     def __load_manually(self, data: pd.DataFrame, data_type: dict, beta_dict: dict, causal_dag: dict, **kwargs):
 
@@ -48,6 +47,10 @@ class CausalDataReader:
         are_nodes_in_df, missing_node = self.__check_dag_nodes_in_dataframe(causal_dag, data)
         if not are_nodes_in_df:
             raise ValueError(f"Node {missing_node} is not present in the data.")
+
+        # Check if the data is one-hot encoded
+        if not check_if_dummy(data, data_type):
+            raise ValueError("The input data must be one-hot encoded dummy variables.")
         self.data = data
 
         # Check if the number of beta coefficients is correct
@@ -72,7 +75,7 @@ class CausalDataReader:
         else:
             self.data_type = classify_variables(self.data)
 
-        self.sm, self.causal_dag, self.data = build_causal_model(self.data, self.data_type)
+        self.sm, self.causal_dag, self.data, self.data_type = build_causal_model(self.data, self.data_type)
         self.beta_dict = generate_beta_params(self.causal_dag, self.data)
 
     @staticmethod
