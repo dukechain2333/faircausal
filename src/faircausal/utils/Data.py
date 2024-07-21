@@ -32,6 +32,7 @@ def check_if_dummy(df: pd.DataFrame, data_type: dict):
     """
     Check if variables in a DataFrame are one-hot encoded dummy variables (only 0 and 1).
     :param df: DataFrame to check.
+    :param data_type: Dictionary with variable names as keys and classifications as values.
     :return: True if all columns are dummy variables, False otherwise.
     """
     for column in df.columns:

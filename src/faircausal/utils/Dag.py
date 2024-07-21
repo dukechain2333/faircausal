@@ -1,4 +1,10 @@
 def is_valid_causal_dag(dag: dict):
+    """
+    Check if the given graph is a valid DAG.
+
+    :param dag: Directed Acyclic Graph (DAG) represented as a dictionary
+    :return: True if the graph is a valid DAG, False otherwise
+    """
     for node, children in dag.items():
         for child in children:
             if child not in dag:
