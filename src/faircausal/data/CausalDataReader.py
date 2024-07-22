@@ -37,6 +37,7 @@ class CausalDataReader:
         if not are_nodes_in_df:
             raise ValueError(f"Node {missing_node} is not present in the data.")
         self.data_type = data_type
+        self.original_data_type = data_type
 
         # Check if the causal DAG is a valid DAG
         if not is_valid_causal_dag(causal_dag):
@@ -52,6 +53,7 @@ class CausalDataReader:
         if not check_if_dummy(data, data_type):
             raise ValueError("The input data must be one-hot encoded dummy variables.")
         self.data = data
+        self.original_data = data
 
         # Check if the number of beta coefficients is correct
         beta_count = self.__count_linear_regression_parameters(causal_dag)
@@ -75,8 +77,12 @@ class CausalDataReader:
         else:
             self.data_type = classify_variables(self.data)
 
+        self.original_data_type = self.data_type
+
         self.sm, self.causal_dag, self.data, self.data_type = build_causal_model(self.data, self.data_type)
         self.beta_dict = generate_beta_params(self.causal_dag, self.data)
+
+        self.original_data = data
 
     @staticmethod
     def __count_linear_regression_parameters(dag: dict):
@@ -113,5 +119,20 @@ class CausalDataReader:
             'data': self.data,
             'data_type': self.data_type,
             'beta_dict': self.beta_dict,
-            'causal_dag': self.causal_dag
+            'causal_dag': self.causal_dag,
+            'original_data': self.original_data,
+            'original_data_type': self.original_data_type
         }
+
+if __name__ == '__main__':
+    data = pd.DataFrame({
+        'A': [1, 2, 3, 4, 5],
+        'B': ['x', 'y', 'x', 'y', 'x'],
+        'C': [2.5, 3.6, 1.2, 4.8, 3.3],
+        'D': [10, 20, 10, 30, 20]
+    })
+    data_reader = CausalDataReader(data)
+    from faircausal.optimizing.ObjectFunctions import mse, negative_log_likelihood
+    print(data_reader.get_model())
+    print(negative_log_likelihood(data_reader))
+    print(mse(data_reader, 'D'))

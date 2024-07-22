@@ -39,3 +39,14 @@ def is_valid_causal_dag(dag: dict):
         return False
 
     return True
+
+
+def find_parents(causal_dag: dict, variable: str):
+    """
+    Find the parents of a given variable in the causal DAG.
+
+    :param causal_dag: Dictionary representing the causal DAG.
+    :param variable: The variable for which to find the parents.
+    :return: List of parent variables.
+    """
+    return [node for node, children in causal_dag.items() if variable in children]

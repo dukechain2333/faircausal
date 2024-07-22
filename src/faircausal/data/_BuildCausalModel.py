@@ -2,8 +2,20 @@ import pandas as pd
 import statsmodels.api as sm
 from causalnex.structure.notears import from_pandas
 
+from faircausal.utils.Dag import find_parents
+
 
 def build_causal_model(data: pd.DataFrame, data_type: dict, max_iter: int = 100, w_threshold: float = 0.0):
+    """
+    Build a causal model from a DataFrame.
+
+    :param data: DataFrame containing the data.
+    :param data_type: Dictionary with variable names as keys and classifications as values.
+    :param max_iter: Maximum number of iterations for the NOTEARS algorithm.
+    :param w_threshold: Threshold for edge weights in the causal model.
+
+    :return: Tuple containing the causal model, the DAG dictionary, the encoded data, and the new data type.
+    """
     # One-hot encode discrete variables
     discrete_vars = [var for var, var_type in data_type.items() if var_type == 'discrete']
     data_encoded = pd.get_dummies(data, columns=discrete_vars, drop_first=False)
@@ -26,14 +38,17 @@ def build_causal_model(data: pd.DataFrame, data_type: dict, max_iter: int = 100,
 
 
 def generate_beta_params(dag: dict, data: pd.DataFrame):
+    """
+    Generate beta parameters for the causal model.
+
+    :param dag: Dictionary representing the causal DAG.
+    :param data: DataFrame containing the data.
+    :return: Dictionary of beta parameters.
+    """
     beta_params = {}
 
-    parents_dict = {node: [] for node in dag}
-    for parent, children in dag.items():
-        for child in children:
-            parents_dict[child].append(parent)
-
-    for node, parents in parents_dict.items():
+    for node in dag.keys():
+        parents = find_parents(dag, node)
         if not parents:
             continue
 
@@ -44,4 +59,3 @@ def generate_beta_params(dag: dict, data: pd.DataFrame):
             beta_params[f'beta__{node}__{parent}'] = model.params[parent]
 
     return beta_params
-
