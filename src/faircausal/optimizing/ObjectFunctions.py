@@ -1,8 +1,10 @@
 import numpy as np
 import statsmodels.api as sm
+from sklearn.metrics import mean_squared_error
 
 from faircausal.data.CausalDataReader import CausalDataReader
 from faircausal.utils.Dag import find_parents
+from faircausal.utils.Metrics import cal_cross_entropy_loss
 
 
 def negative_log_likelihood(causal_data: CausalDataReader):
@@ -10,7 +12,7 @@ def negative_log_likelihood(causal_data: CausalDataReader):
     Negative Log-Likelihood for the causal model.
 
     This function assumes that all continuous variables are normally distributed and all discrete variables are
-    dummy-encoded which follow a Binomial distribution.
+    dummy-encoded which follow a Binomial or Multinomial distribution.
 
     :param causal_data: CausalDataReader object
     :return: Negative Log-Likelihood
@@ -39,29 +41,25 @@ def negative_log_likelihood(causal_data: CausalDataReader):
             nll_continuous += np.sum(0.5 * np.log(2 * np.pi * sigma ** 2) + ((y - y_pred) ** 2) / (2 * sigma ** 2))
 
         elif dtype == 'discrete':
-            n = 1
-            p = 1 / (1 + np.exp(-y_pred))
-            nll_discrete += -np.sum(y * np.log(p) + (n - y) * np.log(1 - p))
+            cross_entropy_loss = cal_cross_entropy_loss(y, y_pred)
+            nll_discrete += cross_entropy_loss
 
     total_nll = nll_continuous + nll_discrete
     return total_nll
 
 
-def mse(causal_data: CausalDataReader, outcome_variable: str):
+def loss(causal_data: CausalDataReader):
     """
-    Mean Squared Error for the predicted outcome variable.
+    Categorical Cross-Entropy Loss or Mean Squared Error for the causal model.
 
     :param causal_data: CausalDataReader object
-    :param outcome_variable: The outcome variable for which to calculate MSE.
-    :return: Mean Squared Error
+    :return: Error value
     """
-    if outcome_variable not in causal_data['data'].columns:
-        raise ValueError(f"Outcome variable {outcome_variable} not found in data.")
-
-    model_data = causal_data.get_model()
-    data = model_data['data']
-    beta_dict = model_data['beta_dict']
-    causal_dag = model_data['causal_dag']
+    data = causal_data['data']
+    beta_dict = causal_data['beta_dict']
+    causal_dag = causal_data['causal_dag']
+    data_type = causal_data['data_type']
+    outcome_variable = causal_data['outcome_variable']
 
     parents = find_parents(causal_dag, outcome_variable)
     if not parents:
@@ -69,9 +67,15 @@ def mse(causal_data: CausalDataReader, outcome_variable: str):
 
     X = sm.add_constant(data[parents])
     y_true = data[outcome_variable]
-    betas = [beta_dict[f'beta__{outcome_variable}__0']] + [beta_dict[f'beta__{outcome_variable}__{parent}'] for parent in parents]
+
+    betas = [beta_dict[f'beta__{outcome_variable}__0']] + [beta_dict[f'beta__{outcome_variable}__{parent}'] for parent
+                                                           in parents]
+
     y_pred = np.dot(X, betas)
-    mse_value = np.mean((y_true - y_pred) ** 2)
 
-    return mse_value
-
+    if data_type[outcome_variable] == 'continuous':
+        mse_value = mean_squared_error(y_true, y_pred)
+        return mse_value
+    elif data_type[outcome_variable] == 'discrete':
+        cross_entropy_loss = cal_cross_entropy_loss(y_true, y_pred)
+        return cross_entropy_loss
