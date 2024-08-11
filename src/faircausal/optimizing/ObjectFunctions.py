@@ -79,3 +79,11 @@ def loss(causal_data: CausalDataReader):
     elif data_type[outcome_variable] == 'discrete':
         cross_entropy_loss = cal_cross_entropy_loss(y_true, y_pred)
         return cross_entropy_loss
+
+
+def g_formula():
+    pass
+
+
+def nde(causal_data: CausalDataReader):
+    pass

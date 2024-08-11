@@ -10,7 +10,6 @@ class CausalDataReader:
 
     def __init__(self, *args, **kwargs):
 
-        self.sm = None
         self.auto_load_flag = False
         self.data = None
         self.data_type = None
@@ -19,6 +18,7 @@ class CausalDataReader:
         self.original_data = None
         self.original_data_type = None
         self.outcome_variable = None
+        self.original_beta_dict = None
 
         if len(args) == 3:
             self.__load_manually(*args, **kwargs)
@@ -30,7 +30,27 @@ class CausalDataReader:
     def __getitem__(self, item):
         return self.get_model()[item]
 
-    def __load_manually(self, data: pd.DataFrame, data_type: dict, beta_dict: dict, causal_dag: dict, **kwargs):
+    def __setitem__(self, key, value):
+        if key == 'data':
+            self.data = value
+        elif key == 'data_type':
+            self.data_type = value
+        elif key == 'beta_dict':
+            self.beta_dict = value
+        elif key == 'causal_dag':
+            self.causal_dag = value
+        elif key == 'original_data':
+            self.original_data = value
+        elif key == 'original_data_type':
+            self.original_data_type = value
+        elif key == 'outcome_variable':
+            self.outcome_variable = value
+        elif key == 'beta_dict_optimized':
+            self.original_beta_dict = value
+        else:
+            raise ValueError("Invalid key.")
+
+    def __load_manually(self, data: pd.DataFrame, data_type: dict, beta_dict: dict, causal_dag: dict):
 
         # Check if the input data is in the correct type
         if not isinstance(data, pd.DataFrame):
@@ -72,6 +92,7 @@ class CausalDataReader:
         if len(beta_dict) != beta_count:
             raise ValueError(f"Invalid number of beta coefficients, expected {beta_count}.")
         self.beta_dict = beta_dict
+        self.original_beta_dict = beta_dict
 
     def __load_auto(self, data: pd.DataFrame):
 
@@ -101,8 +122,9 @@ class CausalDataReader:
 
         self.data_type = classify_variables(self.data)
 
-        self.sm, self.causal_dag, self.data, self.data_type = build_causal_model(self.data, self.data_type, self.outcome_variable)
+        sm, self.causal_dag, self.data, self.data_type = build_causal_model(self.data, self.data_type, self.outcome_variable)
         self.beta_dict = generate_beta_params(self.causal_dag, self.data)
+        self.original_beta_dict = self.beta_dict.copy()
 
     @staticmethod
     def __count_linear_regression_parameters(dag: dict):
@@ -142,25 +164,6 @@ class CausalDataReader:
             'causal_dag': self.causal_dag,
             'original_data': self.original_data,
             'original_data_type': self.original_data_type,
-            'outcome_variable': self.outcome_variable
+            'outcome_variable': self.outcome_variable,
+            'original_beta_dict': self.original_beta_dict
         }
-
-if __name__ == '__main__':
-    data = pd.DataFrame({
-        'A': np.random.normal(0, 1, 200),
-        'B': np.random.choice(['x', 'y', 'z'], 200),
-        'C': np.random.normal(5, 2, 200),
-        'D': np.random.choice([0, 1], 200),
-        'E': np.random.choice([0, 1, 2], 200)
-    })
-    data_reader = CausalDataReader(data)
-    from faircausal.optimizing.ObjectFunctions import loss, negative_log_likelihood
-
-    data_reader.fit_causal_model('B')
-    print(data_reader.get_model())
-    print(negative_log_likelihood(data_reader))
-    print(loss(data_reader))
-    data_reader.fit_causal_model('A')
-    print(data_reader.get_model())
-    print(negative_log_likelihood(data_reader))
-    print(loss(data_reader))
