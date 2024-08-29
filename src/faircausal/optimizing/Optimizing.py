@@ -4,11 +4,11 @@ import pandas as pd
 from scipy.optimize import minimize
 
 
-def eval_f(causal_data: CausalDataReader, lambda_value: float):
-    return lambda_value * nde() + negative_log_likelihood(causal_data)
+def eval_f(causal_data: CausalDataReader, lambda_value: float, exposure: str):
+    return lambda_value * nde(causal_data, exposure) + negative_log_likelihood(causal_data)
 
 
-def optimize(causal_data: CausalDataReader):
+def optimize(causal_data: CausalDataReader, exposure: str):
 
     lambda_vals = np.arange(0, 1501, 10)
     results = pd.DataFrame({'nde': np.zeros(len(lambda_vals)),
@@ -19,7 +19,7 @@ def optimize(causal_data: CausalDataReader):
     for i, lambda_val in enumerate(lambda_vals):
         res = minimize(fun=eval_f,
                        x0=causal_data['beta_dict'],
-                       args=(causal_data['data'], lambda_val),
+                       args=(causal_data['data'], lambda_val, exposure),
                        method='COBYLA',
                        options={'tol': 1.0e-8,
                                 'maxiter': 10000})

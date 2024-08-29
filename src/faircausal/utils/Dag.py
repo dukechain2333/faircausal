@@ -1,3 +1,6 @@
+import networkx as nx
+
+
 def is_valid_causal_dag(dag: dict):
     """
     Check if the given graph is a valid DAG.
@@ -50,3 +53,41 @@ def find_parents(causal_dag: dict, variable: str):
     :return: List of parent variables.
     """
     return [node for node, children in causal_dag.items() if variable in children]
+
+
+def classify_confounders_mediators(causal_dag: dict, exposure: str, outcome: str):
+    """
+    Classify the confounders and mediators in the causal DAG.
+
+    :param causal_dag: Dictionary representing the causal DAG.
+    :param exposure: The exposure variable.
+    :param outcome: The outcome variable.
+    :return: Dictionary with keys 'mediators' and 'confounders' containing the mediators and confounders respectively.
+    """
+    dag = nx.DiGraph()
+    for node, children in causal_dag.items():
+        for child in children:
+            dag.add_edge(node, child)
+
+    # show all paths from exposure to outcome
+    paths = list(nx.all_simple_paths(dag, source=exposure, target=outcome))
+
+    # find mediators
+    mediators = set()
+    for path in paths:
+        for node in path:
+            if node != exposure and node != outcome:
+                mediators.add(node)
+
+    # find confounders
+    confounders = set()
+    for node in dag.nodes:
+        if node != exposure and node != outcome:
+            if nx.has_path(dag, node, exposure) and nx.has_path(dag, node, outcome):
+                if node not in mediators:
+                    confounders.add(node)
+
+    return {
+        "mediators": list(mediators),
+        "confounders": list(confounders)
+    }

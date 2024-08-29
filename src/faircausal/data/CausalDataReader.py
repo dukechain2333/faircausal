@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
 
-from faircausal.data._BuildCausalModel import build_causal_model, generate_beta_params
+from faircausal.data._BuildCausalModel import build_causal_model, generate_linear_models
 from faircausal.utils.Dag import is_valid_causal_dag
-from faircausal.utils.Data import classify_variables, check_if_dummy
+from faircausal.utils.Data import transform_data
 
 
 class CausalDataReader:
@@ -12,13 +12,10 @@ class CausalDataReader:
 
         self.auto_load_flag = False
         self.data = None
-        self.data_type = None
-        self.beta_dict = None
+        self.linear_models = None
         self.causal_dag = None
         self.original_data = None
-        self.original_data_type = None
         self.outcome_variable = None
-        self.original_beta_dict = None
 
         if len(args) == 3:
             self.__load_manually(*args, **kwargs)
@@ -33,20 +30,14 @@ class CausalDataReader:
     def __setitem__(self, key, value):
         if key == 'data':
             self.data = value
-        elif key == 'data_type':
-            self.data_type = value
-        elif key == 'beta_dict':
-            self.beta_dict = value
+        elif key == 'linear_models':
+            self.linear_models = value
         elif key == 'causal_dag':
             self.causal_dag = value
         elif key == 'original_data':
             self.original_data = value
-        elif key == 'original_data_type':
-            self.original_data_type = value
         elif key == 'outcome_variable':
             self.outcome_variable = value
-        elif key == 'beta_dict_optimized':
-            self.original_beta_dict = value
         else:
             raise ValueError("Invalid key.")
 
@@ -81,9 +72,6 @@ class CausalDataReader:
         if not are_nodes_in_df:
             raise ValueError(f"Node {missing_node} is not present in the data.")
 
-        # Check if the data is one-hot encoded
-        if not check_if_dummy(data, data_type):
-            raise ValueError("The input data must be one-hot encoded dummy variables.")
         self.data = data
         self.original_data = data
 
@@ -91,7 +79,7 @@ class CausalDataReader:
         beta_count = self.__count_linear_regression_parameters(causal_dag)
         if len(beta_dict) != beta_count:
             raise ValueError(f"Invalid number of beta coefficients, expected {beta_count}.")
-        self.beta_dict = beta_dict
+        self.linear_models = beta_dict
         self.original_beta_dict = beta_dict
 
     def __load_auto(self, data: pd.DataFrame):
@@ -102,7 +90,6 @@ class CausalDataReader:
             raise TypeError("data must be a pandas DataFrame.")
 
         self.data = data
-        self.original_data_type = self.data_type
         self.original_data = data
 
     def fit_causal_model(self, outcome_variable: str):
@@ -113,18 +100,15 @@ class CausalDataReader:
         if not isinstance(outcome_variable, str):
             raise TypeError("outcome_variable must be a string.")
 
-        self.data = self.original_data.copy()
-
         if outcome_variable not in self.data.columns:
             raise ValueError(f"Outcome variable {outcome_variable} not found in data.")
 
         self.outcome_variable = outcome_variable
 
-        self.data_type = classify_variables(self.data)
+        self.data = transform_data(self.data)
 
-        sm, self.causal_dag, self.data, self.data_type = build_causal_model(self.data, self.data_type, self.outcome_variable)
-        self.beta_dict = generate_beta_params(self.causal_dag, self.data)
-        self.original_beta_dict = self.beta_dict.copy()
+        sm, self.causal_dag, self.data = build_causal_model(self.data)
+        self.linear_models = generate_linear_models(self.causal_dag, self.data)
 
     @staticmethod
     def __count_linear_regression_parameters(dag: dict):
@@ -150,20 +134,11 @@ class CausalDataReader:
             if dtype not in ['discrete', 'continuous']:
                 return False
 
-    def get_discrete(self):
-        return {node: dtype for node, dtype in self.data_type.items() if dtype == 'discrete'}
-
-    def get_continuous(self):
-        return {node: dtype for node, dtype in self.data_type.items() if dtype == 'continuous'}
-
     def get_model(self):
         return {
             'data': self.data,
-            'data_type': self.data_type,
-            'beta_dict': self.beta_dict,
+            'linear_models': self.linear_models,
             'causal_dag': self.causal_dag,
             'original_data': self.original_data,
-            'original_data_type': self.original_data_type,
             'outcome_variable': self.outcome_variable,
-            'original_beta_dict': self.original_beta_dict
         }
