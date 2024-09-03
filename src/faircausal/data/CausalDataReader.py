@@ -1,28 +1,28 @@
-import pandas as pd
-import numpy as np
+import warnings
 
-from faircausal.data._BuildCausalModel import build_causal_model, generate_linear_models
-from faircausal.utils.Dag import is_valid_causal_dag
+import numpy as np
+import pandas as pd
+from causalnex.structure.notears import from_pandas
+
+from faircausal.data._BuildCausalModel import generate_linear_models
+from faircausal.utils.Dag import has_cycle, is_connected
 from faircausal.utils.Data import transform_data
 
 
 class CausalDataReader:
 
     def __init__(self, *args, **kwargs):
+        self._fit_flag = False
+        self._set_outcome_variable_flag = False
 
-        self.auto_load_flag = False
         self.data = None
         self.linear_models = None
         self.causal_dag = None
+        self.s_model = None
         self.original_data = None
         self.outcome_variable = None
 
-        if len(args) == 3:
-            self.__load_manually(*args, **kwargs)
-        elif len(args) == 1:
-            self.__load_auto(*args, **kwargs)
-        else:
-            raise ValueError("Invalid number of arguments. Expected either 1 or 3 arguments.")
+        self.__load_auto(*args, **kwargs)
 
     def __getitem__(self, item):
         return self.get_model()[item]
@@ -41,61 +41,53 @@ class CausalDataReader:
         else:
             raise ValueError("Invalid key.")
 
-    def __load_manually(self, data: pd.DataFrame, data_type: dict, beta_dict: dict, causal_dag: dict):
-
-        # Check if the input data is in the correct type
-        if not isinstance(data, pd.DataFrame):
-            raise TypeError("data must be a pandas DataFrame.")
-        if not isinstance(data_type, dict):
-            raise TypeError("data_type must be a dictionary.")
-        if not isinstance(beta_dict, dict):
-            raise TypeError("beta_dict must be a dictionary.")
-        if not isinstance(causal_dag, dict):
-            raise TypeError("causal_dag must be a dictionary.")
-
-        # Check if the data type is valid
-        if not self.__check_if_valid_data_type(data_type):
-            raise ValueError("Invalid data type, expected 'discrete' or 'continuous'.")
-        are_nodes_in_df, missing_node = self.__check_dag_nodes_in_dataframe(data_type, data)
-        if not are_nodes_in_df:
-            raise ValueError(f"Node {missing_node} is not present in the data.")
-        self.data_type = data_type
-        self.original_data_type = data_type
-
-        # Check if the causal DAG is a valid DAG
-        if not is_valid_causal_dag(causal_dag):
-            raise ValueError("The input graph must be a Directed Acyclic Graph (DAG).")
-        self.causal_dag = causal_dag
-
-        # Check if the nodes in the causal DAG are present in the data
-        are_nodes_in_df, missing_node = self.__check_dag_nodes_in_dataframe(causal_dag, data)
-        if not are_nodes_in_df:
-            raise ValueError(f"Node {missing_node} is not present in the data.")
-
-        self.data = data
-        self.original_data = data
-
-        # Check if the number of beta coefficients is correct
-        beta_count = self.__count_linear_regression_parameters(causal_dag)
-        if len(beta_dict) != beta_count:
-            raise ValueError(f"Invalid number of beta coefficients, expected {beta_count}.")
-        self.linear_models = beta_dict
-        self.original_beta_dict = beta_dict
-
     def __load_auto(self, data: pd.DataFrame):
 
-        self.auto_load_flag = True
-
         if not isinstance(data, pd.DataFrame):
             raise TypeError("data must be a pandas DataFrame.")
 
         self.data = data
         self.original_data = data
 
-    def fit_causal_model(self, outcome_variable: str):
+    def __check_graph_validity(self):
 
-        if not self.auto_load_flag:
-            raise AttributeError("get_causal_model() is only available when the data is auto-loaded.")
+        causal_dag = {node: list(self.s_model.successors(node)) for node in self.s_model.nodes}
+
+        if not has_cycle(causal_dag) and is_connected(causal_dag):
+            return True
+        elif has_cycle(causal_dag) and not is_connected(causal_dag):
+            warnings.warn("The causal graph has a cycle. You need to remove the cycle before fitting the model.")
+            warnings.warn(
+                "The causal graph has disconnected nodes. You need to remove the disconnected nodes before fitting the model.")
+            return False
+        elif has_cycle(causal_dag) and is_connected(causal_dag):
+            warnings.warn("The causal graph has a cycle. You need to remove the cycle before fitting the model.")
+            return False
+        else:
+            warnings.warn(
+                "The causal graph has disconnected nodes. You need to remove the disconnected nodes before fitting the model.")
+            return False
+
+    def build_causal_graph(self, max_iter: int = 100, w_threshold: float = 0.8):
+        self.data = transform_data(self.data)
+        self.s_model = from_pandas(self.data, max_iter=max_iter, w_threshold=w_threshold)
+
+        self.__check_graph_validity()
+
+    def fit_linear_models(self):
+
+        if not self.__check_graph_validity():
+            raise RuntimeError(
+                "The causal graph is not valid. You need to remove the cycle or disconnected nodes before fitting the model.")
+
+        self.causal_dag = {node: list(self.s_model.successors(node)) for node in self.s_model.nodes}
+        self.linear_models = generate_linear_models(self.causal_dag, self.data)
+
+        if self._set_outcome_variable_flag:
+            if self.outcome_variable not in self.linear_models:
+                warnings.warn(f"Outcome variable {self.outcome_variable} not found in the causal linear models.")
+
+    def set_outcome_variable(self, outcome_variable: str):
 
         if not isinstance(outcome_variable, str):
             raise TypeError("outcome_variable must be a string.")
@@ -103,36 +95,12 @@ class CausalDataReader:
         if outcome_variable not in self.data.columns:
             raise ValueError(f"Outcome variable {outcome_variable} not found in data.")
 
+        if self._fit_flag:
+            if outcome_variable not in self.linear_models:
+                warnings.warn(f"Outcome variable {outcome_variable} not found in the causal linear models.")
+
         self.outcome_variable = outcome_variable
-
-        self.data = transform_data(self.data)
-
-        sm, self.causal_dag, self.data = build_causal_model(self.data)
-        self.linear_models = generate_linear_models(self.causal_dag, self.data)
-
-    @staticmethod
-    def __count_linear_regression_parameters(dag: dict):
-        total_params = 0
-        for node, parents in dag.items():
-            if parents:
-                total_params += len(parents) + 1
-        return total_params
-
-    @staticmethod
-    def __check_dag_nodes_in_dataframe(dag: dict, df: pd.DataFrame):
-        df_columns = df.columns.tolist()
-
-        for node in dag:
-            if node not in df_columns:
-                return False, node
-
-        return True, None
-
-    @staticmethod
-    def __check_if_valid_data_type(data_type: dict):
-        for node, dtype in data_type.items():
-            if dtype not in ['discrete', 'continuous']:
-                return False
+        self._set_outcome_variable_flag = True
 
     def get_model(self):
         return {

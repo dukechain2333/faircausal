@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.metrics import mean_squared_error, log_loss
 
 from faircausal.data.CausalDataReader import CausalDataReader
-from faircausal.utils.Dag import find_parents
+from faircausal.utils.Dag import recursive_predict
 
 
 def negative_log_likelihood(causal_data: CausalDataReader):
@@ -19,15 +19,14 @@ def negative_log_likelihood(causal_data: CausalDataReader):
     total_nll = 0
 
     for node in linear_models.keys():
-        parents = find_parents(causal_dag, node)
 
         y = data[node]
 
         if data[node].dtype.name == 'category':
-            y_pred_prob = linear_models[node].predict_proba(data[parents])
+            y_pred_prob = recursive_predict(node, causal_dag, linear_models, data, final_predict_proba=True)
             total_nll += -np.sum(np.log(y_pred_prob[np.arange(len(y)), y]))
         else:
-            y_pred = linear_models[node].predict(data[parents])
+            y_pred = recursive_predict(node, causal_dag, linear_models, data)
             sigma = np.std(y - y_pred)
             total_nll += np.sum(0.5 * np.log(2 * np.pi * sigma ** 2) + ((y - y_pred) ** 2) / (2 * sigma ** 2))
 
@@ -46,13 +45,11 @@ def loss(causal_data: CausalDataReader):
     causal_dag = causal_data['causal_dag']
     outcome_variable = causal_data['outcome_variable']
 
-    parents = find_parents(causal_dag, outcome_variable)
-
     if data[outcome_variable].dtype.name == 'category':
-        y_pred_prob = linear_models[outcome_variable].predict_proba(data[parents])
+        y_pred_prob = recursive_predict(outcome_variable, causal_dag, linear_models, data, final_predict_proba=True)
         return log_loss(data[outcome_variable], y_pred_prob)
     else:
-        y_pred = linear_models[outcome_variable].predict(data[parents])
+        y_pred = recursive_predict(outcome_variable, causal_dag, linear_models, data)
         return mean_squared_error(data[outcome_variable], y_pred)
 
 
