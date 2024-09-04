@@ -50,20 +50,27 @@ class CausalDataReader:
 
     def __check_graph_validity(self):
 
-        if not has_cycle(self.causal_dag) and is_connected(self.causal_dag):
+        has_cycles = has_cycle(self.causal_dag)
+        is_fully_connected = is_connected(self.causal_dag)
+
+        if not has_cycles and is_fully_connected:
             return True
-        elif has_cycle(self.causal_dag) and not is_connected(self.causal_dag):
-            warnings.warn("The causal graph has a cycle. You need to remove the cycle before fitting the model.")
+
+        if has_cycles and is_fully_connected:
+            warnings.warn("The causal graph has cycles. You need to remove the cycles before fitting the model.")
+            return False
+
+        if not has_cycles and not is_fully_connected:
             warnings.warn(
-                "The causal graph has disconnected nodes. You need to remove the disconnected nodes before fitting the model.")
+                "The causal graph has disconnected components. You need to ensure full connectivity before fitting the model.")
             return False
-        elif has_cycle(self.causal_dag) and is_connected(self.causal_dag):
-            warnings.warn("The causal graph has a cycle. You need to remove the cycle before fitting the model.")
-            return False
-        else:
+
+        if has_cycles and not is_fully_connected:
             warnings.warn(
-                "The causal graph has disconnected nodes. You need to remove the disconnected nodes before fitting the model.")
+                "The causal graph has cycles and disconnected components. You need to remove the cycles and ensure full connectivity before fitting the model.")
             return False
+
+        return False
 
     def build_causal_graph(self, max_iter: int = 100, w_threshold: float = 0.8):
         self.data = transform_data(self.data)

@@ -33,25 +33,29 @@ def is_connected(dag: dict):
     """
     Check if all nodes in the graph are connected.
 
-    :param dag: Directed Acyclic Graph (DAG) represented as a dictionary
+    :param dag: Graph represented as a dictionary
     :return: True if all nodes are connected, False otherwise
     """
-    all_nodes = set(dag.keys())
-    connected_nodes = set()
+    # Empty graph is considered connected
+    if not dag:
+        return True
 
-    def dfs(node):
-        if node not in connected_nodes:
-            connected_nodes.add(node)
-            for child in dag.get(node, []):
-                dfs(child)
+    def dfs(node, visited):
+        visited.add(node)
+        for neighbor in dag.get(node, []):
+            if neighbor not in visited:
+                dfs(neighbor, visited)
 
-    # Start DFS from every node to ensure all nodes are reachable
-    for node in dag.keys():
-        dfs(node)
+    # Get all nodes in the graph
+    all_nodes = set(dag.keys()).union(*dag.values())
 
-    # Check if all nodes are either parents or children of other nodes
-    all_involved_nodes = set(dag.keys()) | {child for children in dag.values() for child in children}
-    return all_nodes == all_involved_nodes and connected_nodes == all_involved_nodes
+    # Start DFS from the first node
+    start_node = next(iter(all_nodes))
+    visited = set()
+    dfs(start_node, visited)
+
+    # Check if all nodes were visited
+    return len(visited) == len(all_nodes)
 
 
 def is_valid_causal_dag(dag: dict):
