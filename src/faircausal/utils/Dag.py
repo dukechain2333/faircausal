@@ -76,6 +76,140 @@ def is_valid_causal_dag(dag: dict):
     return True
 
 
+def remove_edges(graph_dict, edges):
+    """
+    Remove specified edge(s) from the graph dictionary.
+
+    :param graph_dict: Dictionary representation of the graph
+    :param edges: A single edge as a tuple (start_node, end_node) or a list of such tuples
+    :return: The modified graph dictionary
+    :raises ValueError: If any specified edge doesn't exist in the graph
+    """
+    if isinstance(edges, tuple):
+        edges = [edges]
+    elif not isinstance(edges, list):
+        raise ValueError("Input must be a single edge tuple or a list of edge tuples")
+
+    for edge in edges:
+        if not isinstance(edge, tuple) or len(edge) != 2:
+            raise ValueError(f"Invalid edge format: {edge}. Must be a tuple of two elements.")
+
+        start_node, end_node = edge
+
+        if start_node not in graph_dict:
+            raise ValueError(f"Start node '{start_node}' not found in the graph")
+
+        if end_node not in graph_dict:
+            raise ValueError(f"End node '{end_node}' not found in the graph")
+
+        if end_node not in graph_dict[start_node]:
+            raise ValueError(f"Edge from '{start_node}' to '{end_node}' does not exist in the graph")
+
+        graph_dict[start_node].remove(end_node)
+
+    return graph_dict
+
+
+def remove_nodes(graph_dict, nodes):
+    """
+    Remove specified node(s) and all related edges from the graph dictionary.
+
+    :param graph_dict: Dictionary representation of the graph
+    :param nodes: A single node or a list of nodes to be removed
+    :return: The modified graph dictionary
+    :raises ValueError: If any specified node doesn't exist in the graph
+    """
+    if isinstance(nodes, (str, int)):  # If a single node is provided
+        nodes = [nodes]
+    elif not isinstance(nodes, list):
+        raise ValueError("Input must be a single node or a list of nodes")
+
+    for node in nodes:
+        if node not in graph_dict:
+            raise ValueError(f"Node '{node}' not found in the graph")
+
+    for node in nodes:
+        # Remove the node and its outgoing edges
+        del graph_dict[node]
+
+        # Remove incoming edges to this node
+        for remaining_node in graph_dict:
+            if node in graph_dict[remaining_node]:
+                graph_dict[remaining_node].remove(node)
+
+    return graph_dict
+
+
+def add_node(graph_dict, node, children=None, parents=None):
+    """
+    Add a single node to the graph dictionary, along with its children and parents.
+
+    :param graph_dict: Dictionary representation of the graph
+    :param node: The node to be added
+    :param children: A list of child nodes for the new node
+    :param parents: A list of parent nodes for the new node
+    :return: The modified graph dictionary
+    :raises ValueError: If the specified node already exists in the graph
+    """
+    if node in graph_dict:
+        raise ValueError(f"Node '{node}' already exists in the graph")
+
+    children = children or []
+    parents = parents or []
+
+    # Add the new node with its children
+    graph_dict[node] = children
+
+    # Add edges from parents to the new node
+    for parent in parents:
+        if parent not in graph_dict:
+            raise ValueError(f"Parent node '{parent}' not found in the graph")
+        graph_dict[parent].append(node)
+
+    # Ensure all children exist in the graph
+    for child in children:
+        if child not in graph_dict:
+            graph_dict[child] = []
+
+    return graph_dict
+
+
+def add_edges(graph_dict, edges):
+    """
+    Add edge(s) to the graph dictionary.
+
+    :param graph_dict: Dictionary representation of the graph
+    :param edges: A single edge as a tuple (start_node, end_node) or a list of such tuples
+    :return: The modified graph dictionary
+    :raises ValueError: If the input format is incorrect
+    """
+    if isinstance(edges, tuple):
+        edges = [edges]
+    elif not isinstance(edges, list):
+        raise ValueError("Edges must be a single tuple (start_node, end_node) or a list of such tuples")
+
+    for edge in edges:
+        if not isinstance(edge, tuple) or len(edge) != 2:
+            raise ValueError(f"Invalid edge format: {edge}. Must be a tuple of two elements.")
+
+        start_node, end_node = edge
+
+        # If the start node doesn't exist, create it
+        if start_node not in graph_dict:
+            graph_dict[start_node] = []
+
+        # If the end node doesn't exist, create it
+        if end_node not in graph_dict:
+            graph_dict[end_node] = []
+
+        # Add the edge if it doesn't already exist
+        if end_node not in graph_dict[start_node]:
+            graph_dict[start_node].append(end_node)
+
+    return graph_dict
+
+
+
 def remove_unconnected_nodes(dag: dict, target_node: str = None):
     """
     Remove all unconnected nodes from the given DAG, and optionally retain only the part of the DAG
