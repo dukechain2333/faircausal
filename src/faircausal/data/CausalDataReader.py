@@ -18,7 +18,6 @@ class CausalDataReader:
         self.data = None
         self.linear_models = None
         self.causal_dag = None
-        self.s_model = None
         self.original_data = None
         self.outcome_variable = None
 
@@ -51,16 +50,14 @@ class CausalDataReader:
 
     def __check_graph_validity(self):
 
-        causal_dag = {node: list(self.s_model.successors(node)) for node in self.s_model.nodes}
-
-        if not has_cycle(causal_dag) and is_connected(causal_dag):
+        if not has_cycle(self.causal_dag) and is_connected(self.causal_dag):
             return True
-        elif has_cycle(causal_dag) and not is_connected(causal_dag):
+        elif has_cycle(self.causal_dag) and not is_connected(self.causal_dag):
             warnings.warn("The causal graph has a cycle. You need to remove the cycle before fitting the model.")
             warnings.warn(
                 "The causal graph has disconnected nodes. You need to remove the disconnected nodes before fitting the model.")
             return False
-        elif has_cycle(causal_dag) and is_connected(causal_dag):
+        elif has_cycle(self.causal_dag) and is_connected(self.causal_dag):
             warnings.warn("The causal graph has a cycle. You need to remove the cycle before fitting the model.")
             return False
         else:
@@ -70,8 +67,8 @@ class CausalDataReader:
 
     def build_causal_graph(self, max_iter: int = 100, w_threshold: float = 0.8):
         self.data = transform_data(self.data)
-        self.s_model = from_pandas(self.data, max_iter=max_iter, w_threshold=w_threshold)
-        self.causal_dag = {node: list(self.s_model.successors(node)) for node in self.s_model.nodes}
+        s_model = from_pandas(self.data, max_iter=max_iter, w_threshold=w_threshold)
+        self.causal_dag = {node: list(s_model.successors(node)) for node in s_model.nodes}
 
         self.__check_graph_validity()
 
