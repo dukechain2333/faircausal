@@ -12,8 +12,8 @@ from faircausal.utils.Data import transform_data
 class CausalDataReader:
 
     def __init__(self, *args, **kwargs):
-        self._fit_flag = False
-        self._set_outcome_variable_flag = False
+        self.__fit_flag = False
+        self.__set_outcome_variable_flag = False
 
         self.data = None
         self.linear_models = None
@@ -83,7 +83,7 @@ class CausalDataReader:
         self.causal_dag = {node: list(self.s_model.successors(node)) for node in self.s_model.nodes}
         self.linear_models = generate_linear_models(self.causal_dag, self.data)
 
-        if self._set_outcome_variable_flag:
+        if self.__set_outcome_variable_flag:
             if self.outcome_variable not in self.linear_models:
                 warnings.warn(f"Outcome variable {self.outcome_variable} not found in the causal linear models.")
 
@@ -95,12 +95,12 @@ class CausalDataReader:
         if outcome_variable not in self.data.columns:
             raise ValueError(f"Outcome variable {outcome_variable} not found in data.")
 
-        if self._fit_flag:
+        if self.__fit_flag:
             if outcome_variable not in self.linear_models:
                 warnings.warn(f"Outcome variable {outcome_variable} not found in the causal linear models.")
 
         self.outcome_variable = outcome_variable
-        self._set_outcome_variable_flag = True
+        self.__set_outcome_variable_flag = True
 
     def get_model(self):
         return {

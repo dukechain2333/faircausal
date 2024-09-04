@@ -12,9 +12,9 @@ def negative_log_likelihood(causal_data: CausalDataReader):
     :param causal_data: CausalDataReader object
     :return: Negative Log-Likelihood
     """
-    data = causal_data['data']
-    linear_models = causal_data['linear_models']
-    causal_dag = causal_data['causal_dag']
+    data = causal_data.data
+    linear_models = causal_data.linear_models
+    causal_dag = causal_data.causal_dag
 
     total_nll = 0
 
@@ -40,10 +40,10 @@ def loss(causal_data: CausalDataReader):
     :param causal_data: CausalDataReader object
     :return: Loss value
     """
-    data = causal_data['data']
-    linear_models = causal_data['linear_models']
-    causal_dag = causal_data['causal_dag']
-    outcome_variable = causal_data['outcome_variable']
+    data = causal_data.data
+    linear_models = causal_data.linear_models
+    causal_dag = causal_data.causal_dag
+    outcome_variable = causal_data.outcome_variable
 
     if data[outcome_variable].dtype.name == 'category':
         y_pred_prob = recursive_predict(outcome_variable, causal_dag, linear_models, data, final_predict_proba=True)
