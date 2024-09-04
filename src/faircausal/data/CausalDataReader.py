@@ -1,12 +1,12 @@
 import warnings
 
-import numpy as np
 import pandas as pd
 from causalnex.structure.notears import from_pandas
 
 from faircausal.data._BuildCausalModel import generate_linear_models
 from faircausal.utils.Dag import has_cycle, is_connected
 from faircausal.utils.Data import transform_data
+from faircausal.visualization.CausalGraph import show_graph
 
 
 class CausalDataReader:
@@ -71,6 +71,7 @@ class CausalDataReader:
     def build_causal_graph(self, max_iter: int = 100, w_threshold: float = 0.8):
         self.data = transform_data(self.data)
         self.s_model = from_pandas(self.data, max_iter=max_iter, w_threshold=w_threshold)
+        self.causal_dag = {node: list(self.s_model.successors(node)) for node in self.s_model.nodes}
 
         self.__check_graph_validity()
 
@@ -80,7 +81,6 @@ class CausalDataReader:
             raise RuntimeError(
                 "The causal graph is not valid. You need to remove the cycle or disconnected nodes before fitting the model.")
 
-        self.causal_dag = {node: list(self.s_model.successors(node)) for node in self.s_model.nodes}
         self.linear_models = generate_linear_models(self.causal_dag, self.data)
 
         if self.__set_outcome_variable_flag:
@@ -101,6 +101,11 @@ class CausalDataReader:
 
         self.outcome_variable = outcome_variable
         self.__set_outcome_variable_flag = True
+
+    def show(self, title="Causal Graph", save_path=None, figsize=(10, 7),
+             node_color='lightblue', edge_color='gray', edge_width=1, arrow_size=20):
+        show_graph(self.causal_dag, title=title, save_path=save_path, figsize=figsize,
+                   node_color=node_color, edge_color=edge_color, edge_width=edge_width, arrow_size=arrow_size)
 
     def get_model(self):
         return {
