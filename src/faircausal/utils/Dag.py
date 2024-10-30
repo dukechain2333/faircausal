@@ -29,33 +29,57 @@ def has_cycle(dag: dict):
     return any(visit(node) for node in dag)
 
 
+# def is_connected(dag: dict):
+#     """
+#     Check if all nodes in the graph are connected.
+#
+#     :param dag: Graph represented as a dictionary
+#     :return: True if all nodes are connected, False otherwise
+#     """
+#     # Empty graph is considered connected
+#     if not dag:
+#         return True
+#
+#     def dfs(node, visited):
+#         visited.add(node)
+#         for neighbor in dag.get(node, []):
+#             if neighbor not in visited:
+#                 dfs(neighbor, visited)
+#
+#     # Get all nodes in the graph
+#     all_nodes = set(dag.keys()).union(*dag.values())
+#
+#     # Start DFS from the first node
+#     start_node = next(iter(all_nodes))
+#     visited = set()
+#     dfs(start_node, visited)
+#
+#     # Check if all nodes were visited
+#     return len(visited) == len(all_nodes)
+
 def is_connected(dag: dict):
     """
-    Check if all nodes in the graph are connected.
+    Check if all nodes in the graph have at least one incoming or outgoing edge.
 
     :param dag: Graph represented as a dictionary
-    :return: True if all nodes are connected, False otherwise
+    :return: True if all nodes are connected (have either incoming or outgoing edges), False otherwise
     """
     # Empty graph is considered connected
     if not dag:
         return True
 
-    def dfs(node, visited):
-        visited.add(node)
-        for neighbor in dag.get(node, []):
-            if neighbor not in visited:
-                dfs(neighbor, visited)
-
     # Get all nodes in the graph
     all_nodes = set(dag.keys()).union(*dag.values())
 
-    # Start DFS from the first node
-    start_node = next(iter(all_nodes))
-    visited = set()
-    dfs(start_node, visited)
+    # Check if each node has either an incoming or outgoing edge
+    for node in all_nodes:
+        # Check if the node is either a key (outgoing edge) or a value (incoming edge)
+        if node not in dag or (node in dag and len(dag[node]) == 0):
+            has_incoming = any(node in neighbors for neighbors in dag.values())
+            if not has_incoming:
+                return False
 
-    # Check if all nodes were visited
-    return len(visited) == len(all_nodes)
+    return True
 
 
 def is_valid_causal_dag(dag: dict):
