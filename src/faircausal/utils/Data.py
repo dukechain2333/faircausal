@@ -27,16 +27,14 @@ def classify_variables(df: pd.DataFrame):
 
     return classifications
 
-
-def check_if_dummy(df: pd.DataFrame, data_type: dict):
+def transform_data(df: pd.DataFrame):
     """
-    Check if variables in a DataFrame are one-hot encoded dummy variables (only 0 and 1).
-    :param df: DataFrame to check.
-    :param data_type: Dictionary with variable names as keys and classifications as values.
-    :return: True if all columns are dummy variables, False otherwise.
+    Transform a DataFrame by converting object and category columns to category codes.
+    :param df: DataFrame to transform
+    :return: Transformed DataFrame
     """
     for column in df.columns:
-        if data_type[column] == 'discrete':
-            if len(df[column].unique()) != 2 or set(df[column].unique()) != {0, 1}:
-                return False
-    return True
+        if df[column].dtype == 'object' or df[column].dtype.name == 'category':
+            df[column] = df[column].astype('category').cat.codes
+
+    return df
