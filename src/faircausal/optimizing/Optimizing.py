@@ -4,35 +4,6 @@ from faircausal.optimizing.ObjectFunctions import *
 import numpy as np
 from scipy.optimize import minimize
 
-
-# def eval_f(causal_data: CausalDataReader, lambda_value: float, exposure: str):
-#     return lambda_value * nde(causal_data, exposure) + negative_log_likelihood(causal_data)
-#
-#
-# def optimize(causal_data: CausalDataReader, exposure: str):
-#
-#     lambda_vals = np.arange(0, 1501, 10)
-#     results = pd.DataFrame({'nde': np.zeros(len(lambda_vals)),
-#                             'nll': np.zeros(len(lambda_vals)),
-#                             'mse': np.zeros(len(lambda_vals)),
-#                             'lambda': lambda_vals})
-#
-#     for i, lambda_val in enumerate(lambda_vals):
-#         res = minimize(fun=eval_f,
-#                        x0=causal_data['beta_dict'],
-#                        args=(causal_data['data'], lambda_val, exposure),
-#                        method='COBYLA',
-#                        options={'tol': 1.0e-8,
-#                                 'maxiter': 10000})
-#
-#         causal_data['beta_dict'] = res.x
-#
-#         results.at[i, 'nde'] = nde(causal_data)
-#         results.at[i, 'nll'] = negative_log_likelihood(causal_data)
-#         results.at[i, 'loss'] = loss(causal_data)
-#
-#     return results
-
 def initialize_parameters(causal_data: CausalDataReader):
     """
     Initialize the parameter vector and mapping for optimization.
@@ -84,7 +55,7 @@ def initialize_parameters(causal_data: CausalDataReader):
     return parameter_vector, parameter_mapping
 
 
-def eval_f(parameter_vector, causal_data: CausalDataReader, parameter_mapping, lambda_value: float, exposure: str):
+def eval_f(parameter_vector, causal_data: CausalDataReader, parameter_mapping, lambda_value: float):
     """
     Evaluate the penalized objective function.
 
@@ -96,16 +67,15 @@ def eval_f(parameter_vector, causal_data: CausalDataReader, parameter_mapping, l
     :return: Penalized objective function value
     """
     nll = negative_log_likelihood_param(causal_data, parameter_vector, parameter_mapping)
-    nde_value = nde_param(causal_data, parameter_vector, parameter_mapping, exposure)
+    nde_value = nde_param(causal_data, parameter_vector, parameter_mapping)
     penalty = lambda_value * abs(nde_value)
     return nll + penalty
 
-def optimize(causal_data: CausalDataReader, exposure: str, lambda_value: float):
+def optimize(causal_data: CausalDataReader, lambda_value: float):
     """
     Optimize the parameters to minimize the penalized objective function.
 
     :param causal_data: CausalDataReader object
-    :param exposure: The name of the exposure variable
     :param lambda_value: Penalty parameter
     :return: Optimized parameter vector and updated causal_data with new parameters
     """
@@ -114,7 +84,7 @@ def optimize(causal_data: CausalDataReader, exposure: str, lambda_value: float):
 
     # Define the objective function for optimization
     def objective_func(params):
-        return eval_f(params, causal_data, parameter_mapping, lambda_value, exposure)
+        return eval_f(params, causal_data, parameter_mapping, lambda_value)
 
     # Perform optimization
     result = minimize(objective_func, parameter_vector, method='COBYLA', options={'maxiter': 1000})

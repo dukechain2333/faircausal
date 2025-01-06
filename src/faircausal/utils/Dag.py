@@ -29,34 +29,6 @@ def has_cycle(dag: dict):
     return any(visit(node) for node in dag)
 
 
-# def is_connected(dag: dict):
-#     """
-#     Check if all nodes in the graph are connected.
-#
-#     :param dag: Graph represented as a dictionary
-#     :return: True if all nodes are connected, False otherwise
-#     """
-#     # Empty graph is considered connected
-#     if not dag:
-#         return True
-#
-#     def dfs(node, visited):
-#         visited.add(node)
-#         for neighbor in dag.get(node, []):
-#             if neighbor not in visited:
-#                 dfs(neighbor, visited)
-#
-#     # Get all nodes in the graph
-#     all_nodes = set(dag.keys()).union(*dag.values())
-#
-#     # Start DFS from the first node
-#     start_node = next(iter(all_nodes))
-#     visited = set()
-#     dfs(start_node, visited)
-#
-#     # Check if all nodes were visited
-#     return len(visited) == len(all_nodes)
-
 def is_connected(dag: dict):
     """
     Check if all nodes in the graph have at least one incoming or outgoing edge.
