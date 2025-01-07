@@ -1,11 +1,9 @@
 import warnings
 
 import pandas as pd
-from causalnex.structure.notears import from_pandas
 
 from faircausal.data._BuildCausalModel import generate_linear_models
 from faircausal.utils.Dag import has_cycle, is_connected
-from faircausal.utils.Data import transform_data
 from faircausal.visualization.CausalGraph import show_graph
 
 
@@ -73,13 +71,6 @@ class CausalDataReader:
             return False
 
         return False
-
-    # def build_causal_graph(self, max_iter: int = 100, w_threshold: float = 0.8):
-    #     # self.data = transform_data(self.data)
-    #     s_model = from_pandas(self.data, max_iter=max_iter, w_threshold=w_threshold)
-    #     self.causal_dag = {node: list(s_model.successors(node)) for node in s_model.nodes}
-    #
-    #     self.__check_graph_validity()
 
     def fit_linear_models(self):
 
