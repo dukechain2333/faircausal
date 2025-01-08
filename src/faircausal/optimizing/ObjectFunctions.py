@@ -1,11 +1,10 @@
 import numpy as np
 from sklearn.metrics import mean_squared_error, log_loss
 
-from faircausal.data.CausalDataReader import CausalDataReader
-from faircausal.utils.Dag import recursive_predict, classify_confounders_mediators, find_parents
+from faircausal.utils.Dag import recursive_predict
 
 
-def loss(causal_data: CausalDataReader):
+def loss(causal_data):
     """
     Categorical Cross-Entropy Loss or Mean Squared Error for the causal model.
 
@@ -23,54 +22,6 @@ def loss(causal_data: CausalDataReader):
     else:
         y_pred = recursive_predict(outcome_variable, causal_dag, linear_models, data)
         return mean_squared_error(data[outcome_variable], y_pred)
-
-
-def nde(causal_data: CausalDataReader):
-    """
-    Calculate the Natural Direct Effect (NDE) of the exposure variable on the outcome variable.
-
-    :param causal_data: CausalDataReader object containing the causal DAG, data, and linear models.
-    :return: Estimated NDE value.
-    """
-    data = causal_data.data
-    causal_dag = causal_data.causal_dag
-    linear_models = causal_data.linear_models
-    outcome_variable = causal_data.outcome_variable
-    exposure = causal_data.exposure
-
-    mediator_info = classify_confounders_mediators(causal_dag, exposure, outcome_variable)
-    mediators = mediator_info['mediators']
-
-    if not mediators:
-        total_effect = (recursive_predict(outcome_variable, causal_dag, linear_models, data, predicted_data={exposure: 1})
-                        - recursive_predict(outcome_variable, causal_dag, linear_models, data, predicted_data={exposure: 0}))
-        return np.mean(total_effect)
-
-    # M(E=0)
-    predicted_mediator_at_exposure_0 = {}
-    for mediator in mediators:
-        predicted_mediator_at_exposure_0[mediator] = recursive_predict(
-            mediator, causal_dag, linear_models, data, final_predict_proba=False
-        )
-
-    # Y(E=1, M=M(E=0))
-    y_pred_at_exposure_1_mediator_0 = recursive_predict(
-        outcome_variable, causal_dag, linear_models, data,
-        predicted_data={**predicted_mediator_at_exposure_0, exposure: 1},
-        final_predict_proba=False
-    )
-
-    # Y(E=0, M=M(E=0))
-    y_pred_at_exposure_0_mediator_0 = recursive_predict(
-        outcome_variable, causal_dag, linear_models, data,
-        predicted_data={**predicted_mediator_at_exposure_0, exposure: 0},
-        final_predict_proba=False
-    )
-
-    # NDE = E[Y(E=1, M=M(E=0))] - E[Y(E=0, M=M(E=0))]
-    nde_value = np.mean(y_pred_at_exposure_1_mediator_0 - y_pred_at_exposure_0_mediator_0)
-
-    return nde_value
 
 
 def predict_node(node, data_df, parameter_vector, parameter_mapping):
@@ -154,14 +105,12 @@ def negative_log_likelihood_param(causal_data, parameter_vector, parameter_mappi
 
 def nde_param(causal_data, parameter_vector, parameter_mapping):
     """
-    Calculate the Natural Direct Effect (NDE) by computing p(M=1|A=a*, X)
-    in a vectorized manner. We then form DataFrames for each scenario (a,m)
-    in one pass, predict outcomes in batch, and combine them.
+    Calculate the Natural Direct Effect (NDE)
 
     :param causal_data: CausalDataReader object
     :param parameter_vector: Flattened param vector
     :param parameter_mapping: Mapping of parameters
-    :return: Estimated NDE (float)
+    :return: Estimated NDE
     """
 
     data_df = causal_data.data.copy()
@@ -173,9 +122,7 @@ def nde_param(causal_data, parameter_vector, parameter_mapping):
     a_star = 0
     N = len(data_df)
 
-    # -----------------------------------------------------
-    # 1) Compute p(M=1|A=a*, X) for ALL rows in one shot
-    # -----------------------------------------------------
+    # Compute p(M=1|A=a*, X)
     data_astar = data_df.copy()
     data_astar[exposure] = a_star
     # Vectorized probability that M=1
@@ -183,9 +130,7 @@ def nde_param(causal_data, parameter_vector, parameter_mapping):
     p_m1_astar = np.clip(p_m1_astar, 0.0, 1.0)  # ensure it's [0,1]
     p_m0_astar = 1.0 - p_m1_astar
 
-    # -----------------------------------------------------
-    # 2) Predict Y(a=1, M=0) and Y(a=1, M=1) in batch
-    # -----------------------------------------------------
+    # Predict Y(a=1, M=0) and Y(a=1, M=1)
     data_a_m0 = data_df.copy()
     data_a_m0[exposure] = a
     data_a_m0[mediator] = 0
@@ -199,9 +144,7 @@ def nde_param(causal_data, parameter_vector, parameter_mapping):
     # Weighted: E[Y(a, M(a*))] = y_a_m0 * p(M=0|a*) + y_a_m1 * p(M=1|a*)
     y_a_m_astar = y_a_m0 * p_m0_astar + y_a_m1 * p_m1_astar
 
-    # -----------------------------------------------------
-    # 3) Predict Y(a_star=0, M=0) and Y(a_star=0, M=1)
-    # -----------------------------------------------------
+    # Predict Y(a_star=0, M=0) and Y(a_star=0, M=1)
     data_astar_m0 = data_df.copy()
     data_astar_m0[exposure] = a_star
     data_astar_m0[mediator] = 0
@@ -215,9 +158,7 @@ def nde_param(causal_data, parameter_vector, parameter_mapping):
     # Weighted: E[Y(a*, M(a*))] = y_astar_m0*p(M=0|a*) + y_astar_m1*p(M=1|a*)
     y_astar_m_astar = y_astar_m0 * p_m0_astar + y_astar_m1 * p_m1_astar
 
-    # -----------------------------------------------------
-    # 4) NDE = average difference
-    # -----------------------------------------------------
+    # NDE = average difference
     nde_array = y_a_m_astar - y_astar_m_astar
     nde_value = np.mean(nde_array)
 

@@ -4,7 +4,10 @@ from faircausal.optimizing.ObjectFunctions import *
 import numpy as np
 from scipy.optimize import minimize
 
-def initialize_parameters(causal_data: CausalDataReader):
+from faircausal.utils import find_parents
+
+
+def initialize_parameters(causal_data):
     """
     Initialize the parameter vector and mapping for optimization.
 
@@ -55,7 +58,7 @@ def initialize_parameters(causal_data: CausalDataReader):
     return parameter_vector, parameter_mapping
 
 
-def eval_f(parameter_vector, causal_data: CausalDataReader, parameter_mapping, lambda_value: float):
+def eval_f(parameter_vector, causal_data, parameter_mapping, lambda_value: float):
     """
     Evaluate the penalized objective function.
 
@@ -71,7 +74,7 @@ def eval_f(parameter_vector, causal_data: CausalDataReader, parameter_mapping, l
     penalty = lambda_value * abs(nde_value)
     return nll + penalty
 
-def optimize(causal_data: CausalDataReader, lambda_value: float):
+def optimize(causal_data, lambda_value: float):
     """
     Optimize the parameters to minimize the penalized objective function.
 
@@ -79,28 +82,36 @@ def optimize(causal_data: CausalDataReader, lambda_value: float):
     :param lambda_value: Penalty parameter
     :return: Optimized parameter vector and updated causal_data with new parameters
     """
-    # Initialize parameters and mapping
     parameter_vector, parameter_mapping = initialize_parameters(causal_data)
 
-    # Define the objective function for optimization
     def objective_func(params):
         return eval_f(params, causal_data, parameter_mapping, lambda_value)
 
-    # Perform optimization
     result = minimize(objective_func, parameter_vector, method='COBYLA', options={'maxiter': 1000})
 
-    # Update the linear_models in causal_data with optimized parameters
     optimized_params = result.x
+
+    optimized_dict = {}
+
+    # Update the linear_models in causal_data with optimized parameters
     for node in causal_data.causal_dag.keys():
         mapping = parameter_mapping[node]
         start = mapping['start']
         end = mapping['end']
         params = optimized_params[start:end]
+
         intercept = params[0]
         coefficients = params[1:]
         parents = mapping['parents']
 
-        # Create new models with optimized parameters
+        intercept_key = f"beta_{node}_0"
+        optimized_dict[intercept_key] = intercept
+
+        for i, parent in enumerate(parents):
+            coef_key = f"beta_{node}_{parent}"
+            optimized_dict[coef_key] = coefficients[i]
+
+        # Update the scikit-learn model
         if mapping['type'] == 'categorical':
             # Logistic Regression
             model = LogisticRegression()
@@ -112,9 +123,8 @@ def optimize(causal_data: CausalDataReader, lambda_value: float):
             model.intercept_ = intercept
             model.coef_ = coefficients
 
-        # Update the model in causal_data
         causal_data.linear_models[node] = model
 
-    return optimized_params, causal_data
+    return optimized_dict, causal_data
 
 

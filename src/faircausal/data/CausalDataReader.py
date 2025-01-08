@@ -14,6 +14,7 @@ class CausalDataReader:
         self.__set_outcome_variable_flag = False
 
         self.data = None
+        self.predicted_data = None
         self.linear_models = None
         self.causal_dag = {}
         self.original_data = None
