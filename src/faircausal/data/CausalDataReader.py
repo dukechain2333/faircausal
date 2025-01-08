@@ -1,11 +1,9 @@
 import warnings
 
 import pandas as pd
-from causalnex.structure.notears import from_pandas
 
 from faircausal.data._BuildCausalModel import generate_linear_models
 from faircausal.utils.Dag import has_cycle, is_connected
-from faircausal.utils.Data import transform_data
 from faircausal.visualization.CausalGraph import show_graph
 
 
@@ -16,10 +14,13 @@ class CausalDataReader:
         self.__set_outcome_variable_flag = False
 
         self.data = None
+        self.predicted_data = None
         self.linear_models = None
-        self.causal_dag = None
+        self.causal_dag = {}
         self.original_data = None
         self.outcome_variable = None
+        self.mediator = None
+        self.exposure = None
 
         self.__load_auto(*args, **kwargs)
 
@@ -72,13 +73,6 @@ class CausalDataReader:
 
         return False
 
-    def build_causal_graph(self, max_iter: int = 100, w_threshold: float = 0.8):
-        self.data = transform_data(self.data)
-        s_model = from_pandas(self.data, max_iter=max_iter, w_threshold=w_threshold)
-        self.causal_dag = {node: list(s_model.successors(node)) for node in s_model.nodes}
-
-        self.__check_graph_validity()
-
     def fit_linear_models(self):
 
         if not self.__check_graph_validity():
@@ -105,6 +99,34 @@ class CausalDataReader:
 
         self.outcome_variable = outcome_variable
         self.__set_outcome_variable_flag = True
+
+    def set_mediator(self, mediator: str):
+
+        if not isinstance(mediator, str):
+            raise TypeError("mediator must be a string.")
+
+        if mediator not in self.data.columns:
+            raise ValueError(f"Mediator {mediator} not found in data.")
+
+        if self.__fit_flag:
+            if mediator not in self.linear_models:
+                warnings.warn(f"Mediator {mediator} not found in the causal linear models.")
+
+        self.mediator = mediator
+
+    def set_exposure(self, exposure: str):
+
+        if not isinstance(exposure, str):
+            raise TypeError("exposure must be a string.")
+
+        if exposure not in self.data.columns:
+            raise ValueError(f"Expousure {exposure} not found in data.")
+
+        if self.__fit_flag:
+            if exposure not in self.linear_models:
+                warnings.warn(f"Expousure {exposure} not found in the causal linear models.")
+
+        self.exposure = exposure
 
     def show(self, title="Causal Graph", save_path=None, figsize=(10, 7),
              node_color='lightblue', edge_color='gray', edge_width=1, arrow_size=20):
