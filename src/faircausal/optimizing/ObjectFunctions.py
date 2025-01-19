@@ -1,27 +1,4 @@
 import numpy as np
-from sklearn.metrics import mean_squared_error, log_loss
-
-from faircausal.utils.Dag import recursive_predict
-
-
-def loss(causal_data):
-    """
-    Categorical Cross-Entropy Loss or Mean Squared Error for the causal model.
-
-    :param causal_data: CausalDataReader object
-    :return: Loss value
-    """
-    data = causal_data.data
-    linear_models = causal_data.linear_models
-    causal_dag = causal_data.causal_dag
-    outcome_variable = causal_data.outcome_variable
-
-    if data[outcome_variable].dtype.name == 'category':
-        y_pred_prob = recursive_predict(outcome_variable, causal_dag, linear_models, data, final_predict_proba=True)
-        return log_loss(data[outcome_variable], y_pred_prob)
-    else:
-        y_pred = recursive_predict(outcome_variable, causal_dag, linear_models, data)
-        return mean_squared_error(data[outcome_variable], y_pred)
 
 
 def predict_node(node, data_df, parameter_vector, parameter_mapping):
