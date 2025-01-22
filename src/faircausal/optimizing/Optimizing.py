@@ -1,10 +1,12 @@
-from sklearn.linear_model import LogisticRegression, LinearRegression
+from multiprocessing import Pool
 
-from faircausal.optimizing.ObjectFunctions import *
 import numpy as np
 from scipy.optimize import minimize
+from sklearn.linear_model import LogisticRegression, LinearRegression
 
-from faircausal.utils import find_parents
+from faircausal.optimizing.ObjectFunctions import negative_log_likelihood_param, nde_param
+from faircausal.utils.Dag import find_parents
+from faircausal.utils.Evaluation import eval_loss
 
 
 def initialize_parameters(causal_data):
@@ -28,7 +30,8 @@ def initialize_parameters(causal_data):
             'start': index,
             'end': index + num_params,
             'parents': parents,
-            'type': 'categorical' if causal_data.data[node].dtype.name == 'category' or causal_data.data[node].nunique() == 2 else 'continuous'
+            'type': 'categorical' if causal_data.data[node].dtype.name == 'category' or causal_data.data[
+                node].nunique() == 2 else 'continuous'
         }
         index += num_params
 
@@ -73,6 +76,7 @@ def eval_f(parameter_vector, causal_data, parameter_mapping, lambda_value: float
     nde_value = nde_param(causal_data, parameter_vector, parameter_mapping)
     penalty = lambda_value * abs(nde_value)
     return nll + penalty
+
 
 def optimize(causal_data, lambda_value: float):
     """
@@ -128,3 +132,35 @@ def optimize(causal_data, lambda_value: float):
     return optimized_dict, causal_data
 
 
+def run_optimize_process(causal_data, lambda_value, run_id):
+    optimized_params, causal_data_optimized = optimize(causal_data, lambda_value)
+
+    parameter_vector, parameter_mapping = initialize_parameters(causal_data_optimized)
+    nde_param_val = nde_param(causal_data, parameter_vector, parameter_mapping)
+    loss = eval_loss(causal_data_optimized)
+
+    return {
+        'run_id': run_id,
+        'lambda_value': lambda_value,
+        'optimized_params': optimized_params,
+        'nde_param_val': nde_param_val,
+        'loss': loss,
+        'causal_data_optimized': causal_data_optimized
+    }
+
+
+def batch_optimize(causal_data, lambda_values: list):
+    """
+    Batch optimization of the parameters.
+
+    :param causal_data: CausalDataReader object
+    :param lambda_values: List of Penalty parameter
+    :return: List of optimized parameter dictionaries
+    """
+
+    tasks = [(causal_data, lv, i) for i, lv in enumerate(lambda_values)]
+
+    with Pool() as pool:
+        batch_optimized_results = pool.starmap(run_optimize_process, tasks)
+
+    return batch_optimized_results

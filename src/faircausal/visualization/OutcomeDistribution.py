@@ -1,8 +1,8 @@
-import seaborn as sns
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
-def show_outcome_distribution(causal_data, mode = 0, figsize=(10, 7)):
+def show_outcome_distribution(causal_data, mode=0, figsize=(10, 7)):
     """
     Visualize the distribution of the outcome variable.
 

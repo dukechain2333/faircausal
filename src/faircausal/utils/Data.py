@@ -27,6 +27,7 @@ def classify_variables(df: pd.DataFrame):
 
     return classifications
 
+
 def transform_data(df: pd.DataFrame):
     """
     Transform a DataFrame by converting object and category columns to category codes.

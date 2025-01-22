@@ -209,7 +209,6 @@ def add_edges(graph_dict, edges):
     return graph_dict
 
 
-
 def remove_unconnected_nodes(dag: dict, target_node: str = None):
     """
     Remove all unconnected nodes from the given DAG, and optionally retain only the part of the DAG

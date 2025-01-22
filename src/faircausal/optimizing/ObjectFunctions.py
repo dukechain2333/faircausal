@@ -73,7 +73,7 @@ def negative_log_likelihood_param(causal_data, parameter_vector, parameter_mappi
             # Continuous => assume Gaussian with sigma=1
             # nll = sum( 0.5*log(2*pi*sigma^2) + (y-mean)^2 / (2*sigma^2) )
             residuals = actual_vals - y_pred
-            nll_array = 0.5 * np.log(2.0 * np.pi * 1.0) + (residuals**2) / 2.0
+            nll_array = 0.5 * np.log(2.0 * np.pi * 1.0) + (residuals ** 2) / 2.0
 
         total_nll += np.sum(nll_array)
 
