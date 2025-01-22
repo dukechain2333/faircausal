@@ -5,6 +5,7 @@ from scipy.optimize import minimize
 from sklearn.linear_model import LogisticRegression, LinearRegression
 
 from faircausal.optimizing.ObjectFunctions import negative_log_likelihood_param, nde_param
+from faircausal.utils import prediction
 from faircausal.utils.Dag import find_parents
 from faircausal.utils.Evaluation import eval_loss
 
@@ -137,6 +138,7 @@ def run_optimize_process(causal_data, lambda_value, run_id):
 
     parameter_vector, parameter_mapping = initialize_parameters(causal_data_optimized)
     nde_param_val = nde_param(causal_data, parameter_vector, parameter_mapping)
+    causal_data_optimized = prediction(causal_data_optimized)
     loss = eval_loss(causal_data_optimized)
 
     return {
