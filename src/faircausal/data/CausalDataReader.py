@@ -100,17 +100,14 @@ class CausalDataReader:
         self.outcome_variable = outcome_variable
         self.__set_outcome_variable_flag = True
 
-    def set_mediator(self, mediator: str):
+    def set_mediator(self, mediator: list):
 
-        if not isinstance(mediator, str):
-            raise TypeError("mediator must be a string.")
+        if not isinstance(mediator, list):
+            raise TypeError("mediator must be a List.")
 
-        if mediator not in self.data.columns:
-            raise ValueError(f"Mediator {mediator} not found in data.")
-
-        if self.__fit_flag:
-            if mediator not in self.linear_models:
-                warnings.warn(f"Mediator {mediator} not found in the causal linear models.")
+        for m in mediator:
+            if m not in self.data.columns:
+                raise ValueError(f"Mediator {m} not found in data.")
 
         self.mediator = mediator
 
