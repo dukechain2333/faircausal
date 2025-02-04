@@ -24,3 +24,61 @@ def show_outcome_distribution(causal_data, mode=0, figsize=(10, 7)):
     sns.displot(data=data, x=outcome_variable, hue=exposure, kde=True, alpha=0.47)
     plt.title(f"Distribution of {outcome_variable}")
     plt.show()
+
+
+def loss_nde_plot(result_df, figsize=(10, 7)):
+    """
+    Visualize the loss and NDE values from the batch optimization.
+
+    :param result_df: DataFrame of the results
+    """
+    plt.figure(figsize=figsize)
+    sns.lineplot(data=result_df, x='NDE', y='Loss')
+    plt.title("Loss vs NDE values")
+    plt.show()
+
+
+def lambda_nde_plot(result_df, figsize=(10, 7)):
+    """
+    Visualize the lambda and NDE values from the batch optimization.
+
+    :param result_df: DataFrame of the results
+    """
+    plt.figure(figsize=figsize)
+    sns.lineplot(data=result_df, x='Lambda', y='NDE')
+    plt.title("Lambda vs NDE values")
+    plt.show()
+
+
+def lambda_loss_plot(result_df, figsize=(10, 7)):
+    """
+    Visualize the lambda and loss values from the batch optimization.
+
+    :param result_df: DataFrame of the results
+    """
+
+    plt.figure(figsize=figsize)
+    sns.lineplot(data=result_df, x='Lambda', y='Loss')
+    plt.title("Lambda vs Loss values")
+    plt.show()
+
+
+def show_results(result_df, figsize=(10, 5)):
+    """
+    Visualize the loss vs NDE, lambda vs NDE, and lambda vs loss values from the batch optimization.
+
+    :param result_df: DataFrame of the results
+    """
+
+    fig, axs = plt.subplots(1, 3, figsize=figsize)
+
+    sns.lineplot(data=result_df, x='NDE', y='Loss', ax=axs[0])
+    axs[0].set_title("Loss vs NDE values")
+
+    sns.lineplot(data=result_df, x='Lambda', y='NDE', ax=axs[1])
+    axs[1].set_title("Lambda vs NDE values")
+
+    sns.lineplot(data=result_df, x='Lambda', y='Loss', ax=axs[2])
+    axs[2].set_title("Lambda vs Loss values")
+
+
