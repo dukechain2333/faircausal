@@ -95,7 +95,7 @@ def nde_param(causal_data, parameter_vector, parameter_mapping):
     data_df = causal_data.data.copy()
     outcome_node = causal_data.outcome_variable
     exposure = causal_data.exposure
-    mediators = causal_data.mediator  # List of mediators
+    mediators = causal_data.mediator
 
     # Identify continuous and discrete mediators
     discrete_mediators = [m for m in mediators if parameter_mapping[m]['type'] == 'categorical']
