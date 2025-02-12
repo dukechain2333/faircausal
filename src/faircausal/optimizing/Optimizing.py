@@ -166,3 +166,22 @@ def batch_optimize(causal_data, lambda_values: list):
         batch_optimized_results = pool.starmap(run_optimize_process, tasks)
 
     return batch_optimized_results
+
+
+def serialize_optimize(causal_data, lambda_values: list):
+    """
+    Serialize optimization of the parameters.
+
+    :param causal_data: CausalDataReader object
+    :param lambda_values: List of Penalty parameter
+    :return: List of optimized parameter dictionaries
+    """
+    results = []
+
+    for i, lambda_value in enumerate(lambda_values):
+        result = run_optimize_process(causal_data, lambda_value, i)
+        results.append(result)
+
+    return results
+
+

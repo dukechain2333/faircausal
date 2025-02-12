@@ -1,3 +1,5 @@
+import itertools
+
 import numpy as np
 
 
@@ -80,12 +82,14 @@ def negative_log_likelihood_param(causal_data, parameter_vector, parameter_mappi
     return total_nll
 
 
+#
+
 def nde_param(causal_data, parameter_vector, parameter_mapping):
     """
-    Calculate the Natural Direct Effect (NDE)
+    Calculate the Natural Direct Effect (NDE) with support for both parallel and sequential mediators.
 
     :param causal_data: CausalDataReader object
-    :param parameter_vector: Flattened param vector
+    :param parameter_vector: Flattened parameter vector
     :param parameter_mapping: Mapping of parameters
     :return: Estimated NDE
     """
@@ -93,50 +97,92 @@ def nde_param(causal_data, parameter_vector, parameter_mapping):
     data_df = causal_data.data.copy()
     outcome_node = causal_data.outcome_variable
     exposure = causal_data.exposure
-    mediator = causal_data.mediator
+    mediators = causal_data.mediator
 
     a = 1
     a_star = 0
     N = len(data_df)
 
-    # Compute p(M=1|A=a*, X)
+    # Identify discrete and continuous mediators
+    discrete_mediators = [m for m in mediators.keys() if parameter_mapping[m]['type'] == 'categorical']
+    continuous_mediators = [m for m in mediators.keys() if parameter_mapping[m]['type'] == 'continuous']
+
+    # Compute P(M_d | A=a*, X) for discrete mediators
     data_astar = data_df.copy()
     data_astar[exposure] = a_star
-    # Vectorized probability that M=1
-    p_m1_astar = predict_node(mediator, data_astar, parameter_vector, parameter_mapping)
-    p_m1_astar = np.clip(p_m1_astar, 0.0, 1.0)  # ensure it's [0,1]
-    p_m0_astar = 1.0 - p_m1_astar
 
-    # Predict Y(a=1, M=0) and Y(a=1, M=1)
-    data_a_m0 = data_df.copy()
-    data_a_m0[exposure] = a
-    data_a_m0[mediator] = 0
-    y_a_m0 = predict_node(outcome_node, data_a_m0, parameter_vector, parameter_mapping)
+    p_m_astar = {}
+    for mediator in discrete_mediators:
+        p_m_astar[mediator] = np.clip(predict_node(mediator, data_astar, parameter_vector, parameter_mapping), 0.0, 1.0)
 
-    data_a_m1 = data_df.copy()
-    data_a_m1[exposure] = a
-    data_a_m1[mediator] = 1
-    y_a_m1 = predict_node(outcome_node, data_a_m1, parameter_vector, parameter_mapping)
+    # Compute joint probabilities for discrete mediators
+    mediator_combinations = list(itertools.product([0, 1], repeat=len(discrete_mediators)))
+    p_m_comb_astar = np.ones((N, len(mediator_combinations)))
 
-    # Weighted: E[Y(a, M(a*))] = y_a_m0 * p(M=0|a*) + y_a_m1 * p(M=1|a*)
-    y_a_m_astar = y_a_m0 * p_m0_astar + y_a_m1 * p_m1_astar
+    for idx, combination in enumerate(mediator_combinations):
+        for j, mediator in enumerate(discrete_mediators):
+            p_m_comb_astar[:, idx] *= np.where(combination[j] == 1, p_m_astar[mediator], 1 - p_m_astar[mediator])
 
-    # Predict Y(a_star=0, M=0) and Y(a_star=0, M=1)
-    data_astar_m0 = data_df.copy()
-    data_astar_m0[exposure] = a_star
-    data_astar_m0[mediator] = 0
-    y_astar_m0 = predict_node(outcome_node, data_astar_m0, parameter_vector, parameter_mapping)
+    # Compute E[M_c | A=a*] for continuous mediators
+    predicted_m_c_astar = {}
+    for mediator in continuous_mediators:
+        predicted_m_c_astar[mediator] = predict_node(mediator, data_astar, parameter_vector, parameter_mapping)
 
-    data_astar_m1 = data_df.copy()
-    data_astar_m1[exposure] = a_star
-    data_astar_m1[mediator] = 1
-    y_astar_m1 = predict_node(outcome_node, data_astar_m1, parameter_vector, parameter_mapping)
+    # Handle sequential mediators
+    def compute_sequential_mediators(data, parent_mediator):
+        """
+        Recursively compute expected values for sequential mediators.
+        :param data: DataFrame with modified exposure and mediator values.
+        :param parent_mediator: The mediator whose child needs to be predicted.
+        """
+        if mediators[parent_mediator] is None:
+            return data  # No sequential mediators, return as is.
 
-    # Weighted: E[Y(a*, M(a*))] = y_astar_m0*p(M=0|a*) + y_astar_m1*p(M=1|a*)
-    y_astar_m_astar = y_astar_m0 * p_m0_astar + y_astar_m1 * p_m1_astar
+        child_mediator = mediators[parent_mediator]
+        data[child_mediator] = predict_node(child_mediator, data, parameter_vector, parameter_mapping)
 
-    # NDE = average difference
-    nde_array = y_a_m_astar - y_astar_m_astar
-    nde_value = np.mean(nde_array)
+        return compute_sequential_mediators(data, child_mediator)
+
+    # Predict Y(a=1, M_d, M_c) for all mediator combinations
+    y_a_m_comb = np.zeros((N, len(mediator_combinations)))
+    y_astar_m_comb = np.zeros((N, len(mediator_combinations)))
+
+    for idx, combination in enumerate(mediator_combinations):
+        # Set up the data for exposure = a (treatment)
+        data_a_m = data_df.copy()
+        data_a_m[exposure] = a
+        for j, mediator in enumerate(discrete_mediators):
+            data_a_m[mediator] = combination[j]
+        for mediator in continuous_mediators:
+            data_a_m[mediator] = predicted_m_c_astar[mediator]  # Expected value
+
+        # If mediator has sequential relationships, compute recursively
+        for mediator in mediators.keys():
+            if mediators[mediator] is not None:
+                data_a_m = compute_sequential_mediators(data_a_m, mediator)
+
+        y_a_m_comb[:, idx] = predict_node(outcome_node, data_a_m, parameter_vector, parameter_mapping)
+
+        # Set up the data for exposure = a_star (control)
+        data_astar_m = data_df.copy()
+        data_astar_m[exposure] = a_star
+        for j, mediator in enumerate(discrete_mediators):
+            data_astar_m[mediator] = combination[j]
+        for mediator in continuous_mediators:
+            data_astar_m[mediator] = predicted_m_c_astar[mediator]
+
+        # Compute for sequential mediators
+        for mediator in mediators.keys():
+            if mediators[mediator] is not None:
+                data_astar_m = compute_sequential_mediators(data_astar_m, mediator)
+
+        y_astar_m_comb[:, idx] = predict_node(outcome_node, data_astar_m, parameter_vector, parameter_mapping)
+
+    # Compute E[Y(a, M(a*))] and E[Y(a*, M(a*))]
+    y_a_m_astar = np.sum(y_a_m_comb * p_m_comb_astar, axis=1)
+    y_astar_m_astar = np.sum(y_astar_m_comb * p_m_comb_astar, axis=1)
+
+    # Compute the average NDE
+    nde_value = np.mean(y_a_m_astar - y_astar_m_astar)
 
     return nde_value
