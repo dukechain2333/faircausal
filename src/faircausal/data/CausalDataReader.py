@@ -27,6 +27,17 @@ class CausalDataReader:
     def __getitem__(self, item):
         return self.get_model()[item]
 
+    def get_model(self):
+        return {
+            'data': self.data,
+            'linear_models': self.linear_models,
+            'causal_dag': self.causal_dag,
+            'original_data': self.original_data,
+            'outcome_variable': self.outcome_variable,
+            'mediator': self.mediator,
+            'exposure': self.exposure
+        }
+
     def __setitem__(self, key, value):
         if key == 'data':
             self.data = value
@@ -85,56 +96,92 @@ class CausalDataReader:
             if self.outcome_variable not in self.linear_models:
                 warnings.warn(f"Outcome variable {self.outcome_variable} not found in the causal linear models.")
 
-    def set_outcome_variable(self, outcome_variable: str):
+    def set_causal_variables(self, exposure: str, outcome_variable: str):
+        """
+        Automatically sets the exposure, mediators, and outcome variable.
 
+        :param exposure: Name of the exposure variable.
+        :param outcome_variable: Name of the outcome variable.
+        """
+        # Validate exposure
+        if not isinstance(exposure, str):
+            raise TypeError("Exposure must be a string.")
+        if exposure not in self.data.columns:
+            raise ValueError(f"Exposure variable {exposure} not found in data.")
+        if self.__fit_flag and exposure not in self.linear_models:
+            warnings.warn(f"Exposure {exposure} not found in the causal linear models.")
+
+        # Validate outcome variable
         if not isinstance(outcome_variable, str):
-            raise TypeError("outcome_variable must be a string.")
-
+            raise TypeError("Outcome variable must be a string.")
         if outcome_variable not in self.data.columns:
             raise ValueError(f"Outcome variable {outcome_variable} not found in data.")
+        if self.__fit_flag and outcome_variable not in self.linear_models:
+            warnings.warn(f"Outcome {outcome_variable} not found in the causal linear models.")
 
-        if self.__fit_flag:
-            if outcome_variable not in self.linear_models:
-                warnings.warn(f"Outcome variable {outcome_variable} not found in the causal linear models.")
-
-        self.outcome_variable = outcome_variable
-        self.__set_outcome_variable_flag = True
-
-    def set_mediator(self, mediator: list):
-
-        if not isinstance(mediator, list):
-            raise TypeError("mediator must be a List.")
-
-        for m in mediator:
-            if m not in self.data.columns:
-                raise ValueError(f"Mediator {m} not found in data.")
-
-        self.mediator = mediator
-
-    def set_exposure(self, exposure: str):
-
-        if not isinstance(exposure, str):
-            raise TypeError("exposure must be a string.")
-
-        if exposure not in self.data.columns:
-            raise ValueError(f"Expousure {exposure} not found in data.")
-
-        if self.__fit_flag:
-            if exposure not in self.linear_models:
-                warnings.warn(f"Expousure {exposure} not found in the causal linear models.")
-
+        # Store exposure and outcome
         self.exposure = exposure
+        self.outcome_variable = outcome_variable
+
+        # Find mediators from the causal DAG
+        self.mediator = self._find_mediators()
+
+    def _find_mediators(self):
+        """
+        Identify mediators between the exposure and outcome using the causal DAG.
+
+        :return: Dictionary of mediators in {M1: None, M2: M3, M3: None} format.
+        """
+
+        mediators = {}  # {M1: None, M2: M3, M3: None} structure
+
+        # Identify paths from exposure to outcome
+        paths = self._find_all_paths(self.exposure, self.outcome_variable)
+
+        # Flatten paths into a unique list of potential mediators
+        all_mediators = set(var for path in paths for var in path if var not in {self.exposure, self.outcome_variable})
+
+        # Determine if mediators are parallel or sequential
+        for path in paths:
+            for i in range(len(path) - 1):
+                if path[i] in all_mediators:
+                    next_var = path[i + 1]
+                    if next_var in all_mediators:
+                        mediators[path[i]] = next_var  # Sequential mediator
+                    elif path[i] not in mediators:
+                        mediators[path[i]] = None  # Parallel mediator
+
+        return mediators
+
+    def _find_all_paths(self, start, end, path=None):
+        """
+        Recursively find all causal paths from start to end.
+
+        :param start: Starting variable (exposure).
+        :param end: Target variable (outcome).
+        :param path: Current path (used in recursion).
+        :return: List of paths (each path is a list of variables).
+        """
+        if path is None:
+            path = []
+
+        path = path + [start]
+
+        if start == end:
+            return [path]
+
+        if start not in self.causal_dag:
+            return []
+
+        paths = []
+        for node in self.causal_dag[start]:
+            if node not in path:  # Avoid cycles
+                new_paths = self._find_all_paths(node, end, path)
+                paths.extend(new_paths)
+
+        return paths
 
     def show(self, title="Causal Graph", save_path=None, figsize=(10, 7),
              node_color='lightblue', edge_color='gray', edge_width=1, arrow_size=20):
         show_graph(self.causal_dag, title=title, save_path=save_path, figsize=figsize,
                    node_color=node_color, edge_color=edge_color, edge_width=edge_width, arrow_size=arrow_size)
-
-    def get_model(self):
-        return {
-            'data': self.data,
-            'linear_models': self.linear_models,
-            'causal_dag': self.causal_dag,
-            'original_data': self.original_data,
-            'outcome_variable': self.outcome_variable,
-        }
