@@ -8,24 +8,31 @@ version = "0.1.0"
 description = "A Causal Approach to Fair Predictive Modeling via Penalized Maximum Likelihood Estimation."
 readme = "README.rst"
 authors = [
-  {name = "William Qian", email = "zehao_qian@brown.edu"}
+    { name = "William Qian", email = "william.z.qian@gamil.com" }
 ]
 maintainers = [
-  {name = "William Qian", email = "zehao_qian@brown.edu"}
+    { name = "William Qian", email = "william.z.qian@gamil.com" }
 ]
 classifiers = [
 
 ]
-license = {text = "MIT license"}
+license = { text = "MIT license" }
 dependencies = [
-  "typer"
+    "typer",
+    "scikit-learn",
+    "seaborn",
+    "scipy",
+    "numpy",
+    "networkx",
+    "matplotlib",
+    "pandas"
 ]
 
 [project.optional-dependencies]
 dev = [
-    "coverage",  # testing
-    "mypy",  # linting
-    "pytest",  # testing
+    "coverage", # testing
+    "mypy", # linting
+    "pytest", # testing
     "ruff"  # linting
 ]
 
@@ -36,7 +43,7 @@ changelog = "https://github.com/dukechain2333/faircausal/blob/master/changelog.m
 homepage = "https://github.com/dukechain2333/faircausal"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = { "" = "src" }
 
 [tool.setuptools.package-data]
 "*" = ["*.*"]
