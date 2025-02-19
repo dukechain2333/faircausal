@@ -5,7 +5,7 @@ Credits
 Development Lead
 ----------------
 
-* William Qian <zehao_qian@brown.edu>
+* William Qian <william.z.qian@gmail.com>
 
 Contributors
 ------------
