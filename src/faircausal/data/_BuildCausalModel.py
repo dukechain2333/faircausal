@@ -20,7 +20,7 @@ def generate_linear_models(dag: dict, data: pd.DataFrame):
             continue
 
         if data[node].dtype.name == 'category':
-            model = LogisticRegression().fit(data[parents], data[node])
+            model = LogisticRegression(solver='saga', max_iter=1000).fit(data[parents], data[node])
         else:
             model = LinearRegression().fit(data[parents], data[node])
 
